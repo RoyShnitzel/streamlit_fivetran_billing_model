@@ -26,12 +26,12 @@ st.divider()
 min_date = pd.to_datetime(data['created_at']).dt.to_period('M').min()
 max_date = pd.to_datetime(data['created_at']).dt.to_period('M').max()
 
-# Convert payment_at to datetime
-data.loc[:, 'payment_at'] = pd.to_datetime(data['payment_at'])
-data['payment_month'] = data['payment_at'].dt.to_period('M')
-data['payment_year'] = data['payment_at'].dt.to_period('Q')
-data['subscription_started_month'] = data['subscription_period_started_at'].dt.to_period('M')
-data['subscription_started_year'] = data['subscription_period_started_at'].dt.to_period('Q')
+# Convert timezone-aware datetime columns to periods (timezone info will be dropped)
+# payment_at is already timezone-aware from query.py
+data['payment_month'] = data['payment_at'].dt.tz_convert(None).dt.to_period('M')  # Remove timezone before period conversion
+data['payment_year'] = data['payment_at'].dt.tz_convert(None).dt.to_period('Q')
+data['subscription_started_month'] = data['subscription_period_started_at'].dt.tz_convert(None).dt.to_period('M')
+data['subscription_started_year'] = data['subscription_period_started_at'].dt.tz_convert(None).dt.to_period('Q')
 
 # Filter the Dataframe to include only 'subscription' and 'recurring' billing types
 subscriptions_data = data[

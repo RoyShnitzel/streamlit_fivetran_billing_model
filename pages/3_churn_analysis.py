@@ -21,11 +21,9 @@ data = page_creation()
 
 st.divider()
 
-# Data processing
+# Data processing - datetime columns are already UTC timezone-aware from query.py
 data['created_at'] = pd.to_datetime(data['created_at'])
-data['customer_created_at'] = pd.to_datetime(data['customer_created_at'])
-data['subscription_period_started_at'] = pd.to_datetime(data['subscription_period_started_at'])
-data['subscription_period_ended_at'] = pd.to_datetime(data['subscription_period_ended_at'])
+# customer_created_at, subscription_period_started_at, and subscription_period_ended_at are already UTC timezone-aware
 
 # Calculate MRR (Monthly Recurring Revenue)
 data['mrr'] = data['total_amount'] / ((data['subscription_period_ended_at'] - data['subscription_period_started_at']).dt.days / 30)
@@ -36,7 +34,7 @@ data['quarter'] = data['created_at'].dt.to_period('Q').dt.to_timestamp()
 
 current_year = data['created_at'].dt.year.max()
 previous_year = current_year - 1
-current_month = data['month'].max()
+current_month = pd.Timestamp(data['month'].max(), tz='UTC')
 
 def percentage_change(current, previous):
     if previous == 0:
@@ -57,14 +55,16 @@ current_mrr_yoy = percentage_change(
 )
 
 # New MRR calculations
-new_mrr = data[(data['created_at'] >= current_month) & (data['billing_type'] == 'recurring')]['mrr'].sum()
+new_mrr = data[(data['created_at'] >= current_month.date()) & (data['billing_type'] == 'recurring')]['mrr'].sum()
 new_mrr_yoy = percentage_change(
     data[(data['created_at'].dt.year == current_year) & (data['billing_type'] == 'recurring')]['mrr'].sum(),
     data[(data['created_at'].dt.year == previous_year) & (data['billing_type'] == 'recurring')]['mrr'].sum()
 )
 
 # Churned MRR calculations
-churned_mrr = data[(data['subscription_status'] == 'inactive') & (data['subscription_period_ended_at'] >= current_month)]['mrr'].sum()
+# Filter out null subscription_period_ended_at values before comparison
+valid_ended_at = data['subscription_period_ended_at'].notna()
+churned_mrr = data[(data['subscription_status'] == 'inactive') & valid_ended_at & (data['subscription_period_ended_at'] >= current_month)]['mrr'].sum()
 churned_mrr_yoy = percentage_change(
     data[(data['subscription_status'] == 'inactive') & (data['subscription_period_ended_at'].dt.year == current_year)]['mrr'].sum(),
     data[(data['subscription_status'] == 'inactive') & (data['subscription_period_ended_at'].dt.year == previous_year)]['mrr'].sum()
@@ -72,8 +72,12 @@ churned_mrr_yoy = percentage_change(
 
 # Retention rate calculations
 def calculate_retention_rate(period_start, period_end):
-    customers_at_start = data[data['customer_created_at'] <= period_start]['customer_id'].nunique()
-    customers_retained = data[(data['customer_created_at'] <= period_start) & (data['subscription_status'] == 'active') & (data['created_at'] <= period_end)]['customer_id'].nunique()
+    # Ensure period_start and period_end are timezone-aware for comparison
+    period_start_tz = pd.Timestamp(period_start, tz='UTC') if not hasattr(period_start, 'tz') or period_start.tz is None else period_start
+    period_end_tz = pd.Timestamp(period_end, tz='UTC') if not hasattr(period_end, 'tz') or period_end.tz is None else period_end
+    
+    customers_at_start = data[data['customer_created_at'] <= period_start_tz]['customer_id'].nunique()
+    customers_retained = data[(data['customer_created_at'] <= period_start_tz) & (data['subscription_status'] == 'active') & (data['created_at'] <= period_end_tz)]['customer_id'].nunique()
     return (customers_retained / customers_at_start) * 100 if customers_at_start > 0 else 0
 
 retention_30_day = calculate_retention_rate(current_month - pd.DateOffset(days=30), current_month)

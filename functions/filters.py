@@ -97,7 +97,8 @@ def setting_filters(data):
         filter_values = {}
 
         current_date = pd.Timestamp(datetime.now(), tz='UTC')
-        date_filtered_data['customer_created_date'] = pd.to_datetime(date_filtered_data['customer_created_at'], errors='coerce', utc=True)
+        # customer_created_at is already converted to UTC in query.py, just rename for clarity
+        date_filtered_data['customer_created_date'] = date_filtered_data['customer_created_at']
         
         # Calculate tenure only for non-null customer_created_date values
         mask = date_filtered_data['customer_created_date'].notna()

@@ -54,7 +54,10 @@ number_of_orders = data['header_id'].nunique()
 number_of_customers = data['customer_id'].nunique()
 min_created_at = data['created_at'].min()
 max_created_at = data['created_at'].max()
-new_customers = data[(data['customer_created_at'] >= min_created_at) & (data['customer_created_at'] <= max_created_at)].shape[0]
+# Convert min/max dates to timezone-aware for comparison with customer_created_at
+min_created_at_tz = pd.Timestamp(min_created_at, tz='UTC')
+max_created_at_tz = pd.Timestamp(max_created_at, tz='UTC')
+new_customers = data[(data['customer_created_at'] >= min_created_at_tz) & (data['customer_created_at'] <= max_created_at_tz)].shape[0]
 
 # Helper function to calculate percentage change
 def percentage_change(current, previous):
@@ -239,7 +242,7 @@ with col1:
         st.markdown("**New Customers Over Time**")
         
         # Apply the same date filter as used in other charts
-        filtered_data = data[(data['customer_created_at'] >= min_created_at) & (data['customer_created_at'] <= max_created_at)]
+        filtered_data = data[(data['customer_created_at'] >= min_created_at_tz) & (data['customer_created_at'] <= max_created_at_tz)]
         
         filtered_data['customer_created_month'] = filtered_data['customer_created_at'].dt.to_period('M').dt.to_timestamp()
         new_customers_over_time = filtered_data.groupby('customer_created_month')['customer_id'].nunique().reset_index()
