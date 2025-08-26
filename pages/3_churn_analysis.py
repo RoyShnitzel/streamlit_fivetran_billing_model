@@ -72,12 +72,16 @@ churned_mrr_yoy = percentage_change(
 
 # Retention rate calculations
 def calculate_retention_rate(period_start, period_end):
-    # Ensure period_start and period_end are timezone-aware for comparison
-    period_start_tz = pd.Timestamp(period_start, tz='UTC') if not hasattr(period_start, 'tz') or period_start.tz is None else period_start
-    period_end_tz = pd.Timestamp(period_end, tz='UTC') if not hasattr(period_end, 'tz') or period_end.tz is None else period_end
+    # Convert timezone-aware periods to timezone-naive for comparison with customer_created_at
+    # customer_created_at is timezone-aware from query.py, but created_at is converted to naive in this file
+    period_start_naive = period_start.tz_localize(None) if hasattr(period_start, 'tz') and period_start.tz is not None else period_start
+    period_end_naive = period_end.tz_localize(None) if hasattr(period_end, 'tz') and period_end.tz is not None else period_end
     
-    customers_at_start = data[data['customer_created_at'] <= period_start_tz]['customer_id'].nunique()
-    customers_retained = data[(data['customer_created_at'] <= period_start_tz) & (data['subscription_status'] == 'active') & (data['created_at'] <= period_end_tz)]['customer_id'].nunique()
+    # customer_created_at is timezone-aware, so we need to make it timezone-naive for comparison
+    customer_created_at_naive = data['customer_created_at'].dt.tz_localize(None)
+    
+    customers_at_start = data[customer_created_at_naive <= period_start_naive]['customer_id'].nunique()
+    customers_retained = data[(customer_created_at_naive <= period_start_naive) & (data['subscription_status'] == 'active') & (data['created_at'] <= period_end_naive)]['customer_id'].nunique()
     return (customers_retained / customers_at_start) * 100 if customers_at_start > 0 else 0
 
 retention_30_day = calculate_retention_rate(current_month - pd.DateOffset(days=30), current_month)
