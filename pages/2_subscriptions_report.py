@@ -208,8 +208,24 @@ with st.container():
     with row1_col2:
         st.markdown("**Number of New Subscriptions by Plan**")
         
-        # Group by 'subscription_month' and 'subscription_plan'
-        subscription_by_plan = new_subscriptions_data.groupby(['subscription_started_month', 'subscription_plan']).size().unstack(fill_value=0)
+        # Clean subscription plan names by removing owner prefixes
+        def clean_subscription_plan_name(x):
+            if pd.notna(x):
+                x_str = str(x)
+                if ' - ' in x_str:
+                    return x_str.split(' - ', 1)[1]
+                elif ' -' in x_str:
+                    return x_str.split(' -', 1)[1]
+                else:
+                    return x_str
+            else:
+                return 'Unknown'
+        
+        new_subscriptions_data_clean = new_subscriptions_data.copy()
+        new_subscriptions_data_clean['cleaned_subscription_plan'] = new_subscriptions_data_clean['subscription_plan'].apply(clean_subscription_plan_name)
+        
+        # Group by 'subscription_month' and cleaned 'subscription_plan'
+        subscription_by_plan = new_subscriptions_data_clean.groupby(['subscription_started_month', 'cleaned_subscription_plan']).size().unstack(fill_value=0)
         
         # Convert PeriodIndex to datetime for better x-axis formatting
         subscription_by_plan.index = subscription_by_plan.index.to_timestamp()
@@ -240,22 +256,38 @@ with st.container():
     with row2_col1:
         st.markdown("**Subscription Revenue by Product Type**")
 
-        # Group by 'subscription_month' and 'product_type', then sum total_amount
-        revenue_by_product_type = subscriptions_revenue_data.groupby(['payment_month', 'product_type'])['total_amount'].sum().unstack(fill_value=0)
+        # Clean product names by removing owner prefixes
+        def clean_product_name(x):
+            if pd.notna(x):
+                x_str = str(x)
+                if ' - ' in x_str:
+                    return x_str.split(' - ', 1)[1]
+                elif ' -' in x_str:
+                    return x_str.split(' -', 1)[1]
+                else:
+                    return x_str
+            else:
+                return 'Unknown'
+        
+        subscriptions_revenue_data_clean = subscriptions_revenue_data.copy()
+        subscriptions_revenue_data_clean['cleaned_product_name'] = subscriptions_revenue_data_clean['product_name'].apply(clean_product_name)
+
+        # Group by 'payment_month' and cleaned 'product_name', then sum total_amount
+        revenue_by_product_type = subscriptions_revenue_data_clean.groupby(['payment_month', 'cleaned_product_name'])['total_amount'].sum().unstack(fill_value=0)
         
         # Convert PeriodIndex to datetime for better x-axis formatting
         revenue_by_product_type.index = revenue_by_product_type.index.to_timestamp()
 
         # Convert DataFrame for plotting
         revenue_by_product_type_df = revenue_by_product_type.reset_index()
-        revenue_by_product_type_df = pd.melt(revenue_by_product_type_df, id_vars=['payment_month'], var_name='product_type', value_name='total_amount')
+        revenue_by_product_type_df = pd.melt(revenue_by_product_type_df, id_vars=['payment_month'], var_name='product_name', value_name='total_amount')
 
         # Create a Plotly line chart
         fig3 = px.line(
             revenue_by_product_type_df,
             x='payment_month',
             y='total_amount',
-            color='product_type',
+            color='product_name',
             color_discrete_sequence=color_sequence
         )
 

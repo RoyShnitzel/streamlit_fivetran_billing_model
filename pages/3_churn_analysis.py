@@ -224,8 +224,24 @@ st.plotly_chart(fig)
 
 st.markdown("**New MRR by Product and Overall New MRR**")
 
-# Filter for recurring billing type and group by month and product type
-new_mrr_by_type = data[data['billing_type'] == 'recurring'].groupby([data['created_at'].dt.to_period('M'), 'product_type'])['mrr'].sum().reset_index()
+# Clean product names by removing owner prefixes
+def clean_product_name_for_mrr(x):
+    if pd.notna(x):
+        x_str = str(x)
+        if ' - ' in x_str:
+            return x_str.split(' - ', 1)[1]
+        elif ' -' in x_str:
+            return x_str.split(' -', 1)[1]
+        else:
+            return x_str
+    else:
+        return 'Unknown'
+
+# Filter for recurring billing type and group by month and cleaned product name
+recurring_data = data[data['billing_type'].str.lower() == 'recurring'].copy()
+recurring_data['cleaned_product_name'] = recurring_data['product_name'].apply(clean_product_name_for_mrr)
+
+new_mrr_by_type = recurring_data.groupby([recurring_data['created_at'].dt.to_period('M'), 'cleaned_product_name'])['mrr'].sum().reset_index()
 new_mrr_by_type['created_at'] = new_mrr_by_type['created_at'].dt.to_timestamp()
 
 # Calculate overall new MRR by month
@@ -235,8 +251,8 @@ overall_new_mrr = new_mrr_by_type.groupby('created_at')['mrr'].sum().reset_index
 fig = go.Figure()
 
 # Add stacked bar chart for new MRR by product
-for product in new_mrr_by_type['product_type'].unique():
-    product_data = new_mrr_by_type[new_mrr_by_type['product_type'] == product]
+for product in new_mrr_by_type['cleaned_product_name'].unique():
+    product_data = new_mrr_by_type[new_mrr_by_type['cleaned_product_name'] == product]
     fig.add_trace(
         go.Bar(
             x=product_data['created_at'], 
@@ -291,7 +307,8 @@ end_date_tz = pd.Timestamp(end_date, tz='UTC')
 
 subscribed_data = data[(data['subscription_id'].notna()) & 
                        (data['subscription_period_started_at'] >= start_date_tz) & 
-                       (data['subscription_period_started_at'] <= end_date_tz)]
+                       (data['subscription_period_started_at'] <= end_date_tz) &
+                       (data['customer_created_at'].notna())]
 
 # Debug: Print the shape of subscribed_data
 st.write(f"Number of subscribed records: {subscribed_data.shape[0]}")
