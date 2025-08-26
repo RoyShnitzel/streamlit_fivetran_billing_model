@@ -64,10 +64,10 @@ new_mrr_yoy = percentage_change(
 # Churned MRR calculations
 # Filter out null subscription_period_ended_at values before comparison
 valid_ended_at = data['subscription_period_ended_at'].notna()
-churned_mrr = data[(data['subscription_status'] == 'inactive') & valid_ended_at & (data['subscription_period_ended_at'] >= current_month)]['mrr'].sum()
+churned_mrr = data[(data['subscription_status'] == 'cancelled') & valid_ended_at & (data['subscription_period_ended_at'] >= current_month)]['mrr'].sum()
 churned_mrr_yoy = percentage_change(
-    data[(data['subscription_status'] == 'inactive') & (data['subscription_period_ended_at'].dt.year == current_year)]['mrr'].sum(),
-    data[(data['subscription_status'] == 'inactive') & (data['subscription_period_ended_at'].dt.year == previous_year)]['mrr'].sum()
+    data[(data['subscription_status'] == 'cancelled') & (data['subscription_period_ended_at'].dt.year == current_year)]['mrr'].sum(),
+    data[(data['subscription_status'] == 'cancelled') & (data['subscription_period_ended_at'].dt.year == previous_year)]['mrr'].sum()
 )
 
 # Retention rate calculations
@@ -150,7 +150,7 @@ subscribed_data = data[data['subscription_id'].notna()]
 
 # Calculate overall churn rate
 churn_rate = subscribed_data.groupby(subscribed_data['created_at'].dt.to_period('M')).apply(
-    lambda x: x[x['subscription_status'] == 'inactive']['customer_id'].nunique() / x['customer_id'].nunique()
+    lambda x: x[x['subscription_status'] == 'cancelled']['customer_id'].nunique() / x['customer_id'].nunique()
 ).reset_index()
 churn_rate.columns = ['Month', 'Overall Churn Rate']
 churn_rate['Month'] = churn_rate['Month'].dt.to_timestamp()
@@ -172,7 +172,7 @@ subscribed_data_with_clean_plans = subscribed_data.copy()
 subscribed_data_with_clean_plans['cleaned_subscription_plan'] = subscribed_data_with_clean_plans['subscription_plan'].apply(clean_subscription_plan_name)
 
 churn_rate_by_plan = subscribed_data_with_clean_plans.groupby(['cleaned_subscription_plan', subscribed_data_with_clean_plans['created_at'].dt.to_period('M')]).apply(
-    lambda x: x[x['subscription_status'] == 'inactive']['customer_id'].nunique() / x['customer_id'].nunique()
+    lambda x: x[x['subscription_status'] == 'cancelled']['customer_id'].nunique() / x['customer_id'].nunique()
 ).reset_index()
 churn_rate_by_plan.columns = ['Subscription Plan', 'Month', 'Churn Rate']
 churn_rate_by_plan['Month'] = churn_rate_by_plan['Month'].dt.to_timestamp()
@@ -336,7 +336,7 @@ total_subs = cohort.groupby([
 ])['subscription_id'].nunique().unstack(fill_value=0)
 
 # Calculate churned subscriptions
-churned_subs = cohort[cohort['subscription_status'] == 'inactive'].groupby([
+churned_subs = cohort[cohort['subscription_status'] == 'cancelled'].groupby([
     cohort['subscription_period_started_at'].dt.to_period('M'), 
     'months_since_customer_creation'
 ])['subscription_id'].nunique().unstack(fill_value=0)
@@ -360,7 +360,7 @@ churn_rate = churn_rate.sort_index()
 churn_rate = churn_rate.reindex(sorted(churn_rate.columns), axis=1)
 
 # Rename the index for clarity
-churn_rate.index = churn_rate.index.strftime('%Y-%m')
+churn_rate.index = churn_rate.index.astype(str)  # Convert Period to string more safely
 churn_rate.index.name = 'Subscription Start Month'
 
 # Remove any rows that are all zeros
@@ -385,10 +385,19 @@ for idx in churn_rate_cleaned.index:
 
 # Function to apply color gradient
 def color_gradient(val):
-    if isinstance(val, str):
-        val = float(val.split('%')[0]) / 100
-    color = "#306BEA"
-    return f'background-color: rgba{tuple(int(color[i:i+2], 16) for i in (1, 3, 5)) + (val,)}'
+    try:
+        if isinstance(val, str) and '%' in val:
+            # Extract percentage value from formatted string like "63% (23/36)"
+            pct_str = val.split('%')[0]
+            pct_val = float(pct_str) / 100
+        else:
+            pct_val = 0
+        # Create a simple color gradient based on churn rate
+        intensity = min(pct_val, 1.0)  # Cap at 100%
+        red_intensity = int(255 * intensity)
+        return f'background-color: rgba(255, {255-red_intensity}, {255-red_intensity}, 0.6)'
+    except:
+        return 'background-color: rgba(255, 255, 255, 0.1)'
 
 # Apply formatting and styling
 styled_churn_matrix = formatted_matrix.style.applymap(color_gradient)
@@ -409,9 +418,16 @@ styled_churn_matrix = styled_churn_matrix.set_table_styles([
     {'selector': 'th.col_heading.level0', 'props': [('font-size', '18px'), ('text-align', 'center'), ('padding', '15px')]},
 ])
 
+# Debug output
+st.write(f"Churn rate matrix shape: {churn_rate_cleaned.shape}")
+st.write(f"Matrix empty: {churn_rate_cleaned.empty}")
+
 # Display the churn matrix as a table
 st.write("Churn Rate Matrix:")
-st.dataframe(styled_churn_matrix, use_container_width=True, height=500)
+if not churn_rate_cleaned.empty:
+    st.dataframe(styled_churn_matrix, use_container_width=True, height=500)
+else:
+    st.write("No churn data available for the selected time period.")
 
 # # Optionally, provide a CSV download link for the full data
 # csv = churn_rate.to_csv().encode('utf-8')
