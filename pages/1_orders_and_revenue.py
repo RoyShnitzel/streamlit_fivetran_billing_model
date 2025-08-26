@@ -201,9 +201,18 @@ with col1:
     st.markdown("**Product By Revenue**")
     # Extract product names after '-' character and group by cleaned names
     data_with_cleaned_products = data.copy()
-    data_with_cleaned_products['cleaned_product_name'] = data_with_cleaned_products['product_name'].apply(
-        lambda x: x.split(' - ', 1)[1] if pd.notna(x) and ' - ' in str(x) else str(x) if pd.notna(x) else 'Unknown'
-    )
+    def clean_product_name(x):
+        if pd.notna(x):
+            x_str = str(x)
+            if ' - ' in x_str:
+                return x_str.split(' - ', 1)[1]
+            elif ' -' in x_str:
+                return x_str.split(' -', 1)[1]
+            else:
+                return x_str
+        else:
+            return 'Unknown'
+    data_with_cleaned_products['cleaned_product_name'] = data_with_cleaned_products['product_name'].apply(clean_product_name)
     product_revenue = data_with_cleaned_products.groupby('cleaned_product_name')['total_amount'].sum().reset_index()
     product_revenue = product_revenue.sort_values(by='total_amount', ascending=False)  # Changed to descending order
 

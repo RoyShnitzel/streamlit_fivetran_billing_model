@@ -33,10 +33,10 @@ data['payment_year'] = data['payment_at'].dt.tz_convert(None).dt.to_period('Q')
 data['subscription_started_month'] = data['subscription_period_started_at'].dt.tz_convert(None).dt.to_period('M')
 data['subscription_started_year'] = data['subscription_period_started_at'].dt.tz_convert(None).dt.to_period('Q')
 
-# Filter the Dataframe to include only 'subscription' and 'recurring' billing types
+# Filter the Dataframe to include recurring billing types and subscription transactions
 subscriptions_data = data[
-    (data['billing_type'].isin(['subscription', 'recurring'])) & 
-    (data['transaction_type'] == 'sale')
+    (data['billing_type'].str.lower().isin(['recurring'])) & 
+    (data['transaction_type'] == 'subscription')
 ]
 
 # Add length of subscriptions in weeks
@@ -48,10 +48,10 @@ subscriptions_revenue_data = subscriptions_data[
     (subscriptions_data['payment_month'] <= max_date)
 ]
 
-# Filter the Dataframe to include only 'one-time' and 'invoiceitem' billing types
+# Filter the Dataframe to include checkout billing types and onetime transactions
 onetime_data = data[
-    (data['billing_type'].isin(['one-time', 'invoiceitem'])) & 
-    (data['transaction_type'] == 'sale')
+    (data['billing_type'].str.lower().isin(['checkout'])) & 
+    (data['transaction_type'] == 'onetime')
 ]
 
 # Active subscriptions data

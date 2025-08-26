@@ -155,8 +155,23 @@ churn_rate = subscribed_data.groupby(subscribed_data['created_at'].dt.to_period(
 churn_rate.columns = ['Month', 'Overall Churn Rate']
 churn_rate['Month'] = churn_rate['Month'].dt.to_timestamp()
 
-# Calculate churn rate by plan
-churn_rate_by_plan = subscribed_data.groupby(['subscription_plan', subscribed_data['created_at'].dt.to_period('M')]).apply(
+# Clean subscription plan names and calculate churn rate by plan
+def clean_subscription_plan_name(x):
+    if pd.notna(x):
+        x_str = str(x)
+        if ' - ' in x_str:
+            return x_str.split(' - ', 1)[1]
+        elif ' -' in x_str:
+            return x_str.split(' -', 1)[1]
+        else:
+            return x_str
+    else:
+        return 'Unknown'
+
+subscribed_data_with_clean_plans = subscribed_data.copy()
+subscribed_data_with_clean_plans['cleaned_subscription_plan'] = subscribed_data_with_clean_plans['subscription_plan'].apply(clean_subscription_plan_name)
+
+churn_rate_by_plan = subscribed_data_with_clean_plans.groupby(['cleaned_subscription_plan', subscribed_data_with_clean_plans['created_at'].dt.to_period('M')]).apply(
     lambda x: x[x['subscription_status'] == 'inactive']['customer_id'].nunique() / x['customer_id'].nunique()
 ).reset_index()
 churn_rate_by_plan.columns = ['Subscription Plan', 'Month', 'Churn Rate']
@@ -289,8 +304,13 @@ cohort = subscribed_data.groupby('subscription_id').agg({
 }).reset_index()
 
 # Calculate months since customer creation
+def calculate_months_diff(period_diff):
+    if pd.isna(period_diff):
+        return 0
+    return max(0, period_diff.n)
+
 cohort['months_since_customer_creation'] = ((cohort['subscription_period_started_at'].dt.to_period('M') - 
-                                             cohort['customer_created_at'].dt.to_period('M'))).apply(lambda x: max(0, x.n))
+                                             cohort['customer_created_at'].dt.to_period('M'))).apply(calculate_months_diff)
 
 # Calculate total subscriptions
 total_subs = cohort.groupby([

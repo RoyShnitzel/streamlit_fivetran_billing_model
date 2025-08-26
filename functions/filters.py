@@ -74,16 +74,26 @@ def apply_filters(data, filter_values, columns):
             if selected_options:
                 if column_name == 'product_name':
                     # For product names, compare the cleaned values (part after '-')
-                    cleaned_product_names = data[column_name].dropna().astype(str).apply(
-                        lambda x: x.split(' - ', 1)[1] if ' - ' in x else x
-                    )
+                    def clean_product_name(x):
+                        if ' - ' in x:
+                            return x.split(' - ', 1)[1]
+                        elif ' -' in x:
+                            return x.split(' -', 1)[1]
+                        else:
+                            return x
+                    cleaned_product_names = data[column_name].dropna().astype(str).apply(clean_product_name)
                     mask = cleaned_product_names.isin(selected_options)
                     data = data[mask]
                 elif column_name == 'subscription_plan':
                     # For subscription plans, compare the cleaned values (part after '-')
-                    cleaned_subscription_plans = data[column_name].dropna().astype(str).apply(
-                        lambda x: x.split(' - ', 1)[1] if ' - ' in x else x
-                    )
+                    def clean_subscription_plan(x):
+                        if ' - ' in x:
+                            return x.split(' - ', 1)[1]
+                        elif ' -' in x:
+                            return x.split(' -', 1)[1]
+                        else:
+                            return x
+                    cleaned_subscription_plans = data[column_name].dropna().astype(str).apply(clean_subscription_plan)
                     mask = cleaned_subscription_plans.isin(selected_options)
                     data = data[mask]
                 elif column_name == 'billing_type':
@@ -144,11 +154,25 @@ def setting_filters(data):
             
             # Special processing for specific columns
             if column_name == 'product_name':
-                # Extract part after '-' character for product names
-                values = values.apply(lambda x: x.split(' - ', 1)[1] if ' - ' in x else x)
+                # Extract part after '-' character for product names (handle both ' - ' and ' -' patterns)
+                def clean_product_name(x):
+                    if ' - ' in x:
+                        return x.split(' - ', 1)[1]
+                    elif ' -' in x:
+                        return x.split(' -', 1)[1]
+                    else:
+                        return x
+                values = values.apply(clean_product_name)
             elif column_name == 'subscription_plan':
-                # Extract part after '-' character for subscription plans
-                values = values.apply(lambda x: x.split(' - ', 1)[1] if ' - ' in x else x)
+                # Extract part after '-' character for subscription plans (handle both ' - ' and ' -' patterns)
+                def clean_subscription_plan(x):
+                    if ' - ' in x:
+                        return x.split(' - ', 1)[1]
+                    elif ' -' in x:
+                        return x.split(' -', 1)[1]
+                    else:
+                        return x
+                values = values.apply(clean_subscription_plan)
             elif column_name == 'billing_type':
                 # Lowercase billing type options
                 values = values.str.lower()
