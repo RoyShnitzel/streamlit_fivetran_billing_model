@@ -72,7 +72,26 @@ def apply_filters(data, filter_values, columns):
         if display_name in filter_values:
             selected_options = filter_values[display_name]
             if selected_options:
-                data = data[data[column_name].isin(selected_options)]
+                if column_name == 'product_name':
+                    # For product names, compare the cleaned values (part after '-')
+                    cleaned_product_names = data[column_name].dropna().astype(str).apply(
+                        lambda x: x.split(' - ', 1)[1] if ' - ' in x else x
+                    )
+                    mask = cleaned_product_names.isin(selected_options)
+                    data = data[mask]
+                elif column_name == 'subscription_plan':
+                    # For subscription plans, compare the cleaned values (part after '-')
+                    cleaned_subscription_plans = data[column_name].dropna().astype(str).apply(
+                        lambda x: x.split(' - ', 1)[1] if ' - ' in x else x
+                    )
+                    mask = cleaned_subscription_plans.isin(selected_options)
+                    data = data[mask]
+                elif column_name == 'billing_type':
+                    # For billing type, compare lowercase values
+                    mask = data[column_name].str.lower().isin(selected_options)
+                    data = data[mask]
+                else:
+                    data = data[data[column_name].isin(selected_options)]
 
     return data
 
@@ -121,7 +140,20 @@ def setting_filters(data):
         date_filtered_data = pd.merge(date_filtered_data, revenue_by_company[['customer_company', 'revenue_segment']], on='customer_company', how='left')
 
         def get_distinct_values(data, column_name):
-            return sorted(set(data[column_name].dropna().astype(str)))
+            values = data[column_name].dropna().astype(str)
+            
+            # Special processing for specific columns
+            if column_name == 'product_name':
+                # Extract part after '-' character for product names
+                values = values.apply(lambda x: x.split(' - ', 1)[1] if ' - ' in x else x)
+            elif column_name == 'subscription_plan':
+                # Extract part after '-' character for subscription plans
+                values = values.apply(lambda x: x.split(' - ', 1)[1] if ' - ' in x else x)
+            elif column_name == 'billing_type':
+                # Lowercase billing type options
+                values = values.str.lower()
+            
+            return sorted(set(values))
 
         if 'filter_values' not in st.session_state:
             st.session_state.filter_values = {}

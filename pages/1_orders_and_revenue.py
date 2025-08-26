@@ -199,7 +199,12 @@ with st.container():
     
 with col1:
     st.markdown("**Product By Revenue**")
-    product_revenue = data.groupby('product_name')['total_amount'].sum().reset_index()
+    # Extract product names after '-' character and group by cleaned names
+    data_with_cleaned_products = data.copy()
+    data_with_cleaned_products['cleaned_product_name'] = data_with_cleaned_products['product_name'].apply(
+        lambda x: x.split(' - ', 1)[1] if pd.notna(x) and ' - ' in str(x) else str(x) if pd.notna(x) else 'Unknown'
+    )
+    product_revenue = data_with_cleaned_products.groupby('cleaned_product_name')['total_amount'].sum().reset_index()
     product_revenue = product_revenue.sort_values(by='total_amount', ascending=False)  # Changed to descending order
 
     # Create the figure manually with a blue gradient
@@ -210,7 +215,7 @@ with col1:
     blue_gradient = [f'rgb({int(33 + (i/n_products) * 165)}, {int(113 + (i/n_products) * 86)}, {int(181 + (i/n_products) * 74)})' for i in range(n_products)]
 
     fig.add_trace(go.Bar(
-        y=product_revenue['product_name'],
+        y=product_revenue['cleaned_product_name'],
         x=product_revenue['total_amount'],
         orientation='h',
         marker=dict(
@@ -268,45 +273,40 @@ with col1:
 
 
 # Location Performance Chart
-# Aggregate revenue by customer_country
-location_performance = data.groupby('customer_country')['total_amount'].sum().reset_index()
+# Aggregate revenue by customer_city (US cities)
+location_performance = data.groupby('customer_city')['total_amount'].sum().reset_index()
 
 # Sort by total_amount in descending order
 location_performance = location_performance.sort_values(by='total_amount', ascending=False)
 # Format total_amount for better readability
 location_performance['total_amount_formatted'] = location_performance['total_amount'].apply(lambda x: f"${x:,.0f}")
-# Define a custom color scale that starts with darker shades of green
-custom_color_scale = [
-    (0.0, "rgb(198, 219, 239)"),
-    (0.2, "rgb(158, 202, 225)"),
-    (0.4, "rgb(107, 174, 214)"),
-    (0.6, "rgb(66, 146, 198)"),
-    (0.8, "rgb(33, 113, 181)"),
-    (1.0, "rgb(8, 69, 148)")
-]
-# Create the Plotly Express choropleth map
-fig = px.choropleth(
-    location_performance,
-    locations='customer_country',
-    locationmode='country names',
+
+# Create a bar chart showing revenue by city (since we can't easily map city names to coordinates)
+fig = px.bar(
+    location_performance.head(20),  # Show top 20 cities
+    x='total_amount',
+    y='customer_city',
+    orientation='h',
     color='total_amount',
-    color_continuous_scale=custom_color_scale,
-    title='Revenue by Country',
-    labels={'customer_country': 'Country', 'total_amount_formatted': 'Total Revenue'}
+    color_continuous_scale='Blues',
+    title='Revenue by US City (Top 20)',
+    labels={'customer_city': 'City', 'total_amount': 'Total Revenue'},
+    text='total_amount_formatted'
 )
 
 # Update the color bar to show values in thousands
 fig.update_coloraxes(colorbar_tickprefix='$', colorbar_tickformat='~s')
 
-# Update layout to make the map bigger
+# Update layout for the bar chart
 fig.update_layout(
     autosize=False,
     width=1200,  # Width in pixels
-    height=900,  # Height in pixels
+    height=600,  # Height in pixels for bar chart
     title=dict(
         x=0.5,  # Center title horizontally
         xanchor='center'
-    )
+    ),
+    yaxis={'categoryorder': 'total ascending'}  # Order cities by revenue
 )
 
 # Display the map

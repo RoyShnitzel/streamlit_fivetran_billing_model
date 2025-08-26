@@ -269,9 +269,14 @@ st.markdown("**Cohort Analysis - Subscription Churn Rate**")
 
 # Filter data to include only records with a subscription_id and within the date range
 start_date, end_date = st.session_state.get('date_range', (data['created_at'].min(), data['created_at'].max()))
+
+# Convert date objects to timezone-aware timestamps for comparison with subscription_period_started_at
+start_date_tz = pd.Timestamp(start_date, tz='UTC')
+end_date_tz = pd.Timestamp(end_date, tz='UTC')
+
 subscribed_data = data[(data['subscription_id'].notna()) & 
-                       (data['subscription_period_started_at'] >= start_date) & 
-                       (data['subscription_period_started_at'] <= end_date)]
+                       (data['subscription_period_started_at'] >= start_date_tz) & 
+                       (data['subscription_period_started_at'] <= end_date_tz)]
 
 # Debug: Print the shape of subscribed_data
 st.write(f"Number of subscribed records: {subscribed_data.shape[0]}")
