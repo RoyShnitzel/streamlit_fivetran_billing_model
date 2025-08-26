@@ -97,8 +97,12 @@ def setting_filters(data):
         filter_values = {}
 
         current_date = pd.Timestamp(datetime.now())
-        date_filtered_data['customer_created_date'] = pd.to_datetime(date_filtered_data['customer_created_at'])
-        date_filtered_data['customer_tenure_months'] = ((current_date - date_filtered_data['customer_created_date']) / pd.Timedelta(days=30)).astype(int)
+        date_filtered_data['customer_created_date'] = pd.to_datetime(date_filtered_data['customer_created_at'], errors='coerce')
+        
+        # Calculate tenure only for non-null customer_created_date values
+        mask = date_filtered_data['customer_created_date'].notna()
+        date_filtered_data['customer_tenure_months'] = 0  # Default value for null dates
+        date_filtered_data.loc[mask, 'customer_tenure_months'] = ((current_date - date_filtered_data.loc[mask, 'customer_created_date']) / pd.Timedelta(days=30)).astype(int)
         date_filtered_data['customer_tenure_range'] = date_filtered_data['customer_tenure_months'].apply(calculate_tenure_range)
 
         # Calculate total lifetime revenue by company
