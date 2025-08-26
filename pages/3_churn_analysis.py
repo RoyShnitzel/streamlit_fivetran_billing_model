@@ -55,7 +55,7 @@ current_mrr_yoy = percentage_change(
 )
 
 # New MRR calculations
-new_mrr = data[(data['created_at'] >= current_month.date()) & (data['billing_type'] == 'recurring')]['mrr'].sum()
+new_mrr = data[(data['created_at'] >= current_month.tz_localize(None)) & (data['billing_type'] == 'recurring')]['mrr'].sum()
 new_mrr_yoy = percentage_change(
     data[(data['created_at'].dt.year == current_year) & (data['billing_type'] == 'recurring')]['mrr'].sum(),
     data[(data['created_at'].dt.year == previous_year) & (data['billing_type'] == 'recurring')]['mrr'].sum()

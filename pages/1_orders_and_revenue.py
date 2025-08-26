@@ -242,9 +242,9 @@ with col1:
         st.markdown("**New Customers Over Time**")
         
         # Apply the same date filter as used in other charts
-        filtered_data = data[(data['customer_created_at'] >= min_created_at_tz) & (data['customer_created_at'] <= max_created_at_tz)]
+        filtered_data = data[(data['customer_created_at'] >= min_created_at_tz) & (data['customer_created_at'] <= max_created_at_tz)].copy()
         
-        filtered_data['customer_created_month'] = filtered_data['customer_created_at'].dt.to_period('M').dt.to_timestamp()
+        filtered_data['customer_created_month'] = filtered_data['customer_created_at'].dt.tz_convert(None).dt.to_period('M').dt.to_timestamp()
         new_customers_over_time = filtered_data.groupby('customer_created_month')['customer_id'].nunique().reset_index()
         
         fig = px.bar(new_customers_over_time, 
